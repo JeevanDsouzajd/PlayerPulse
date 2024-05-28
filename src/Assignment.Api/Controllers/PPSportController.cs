@@ -40,6 +40,29 @@ namespace Assignment.Api.Controllers
                 var statistics = await _sportService.GetAllStatisticsAsync(sportCode);
                 return Ok(new { StatusCode = 200, Message = "Statistics Fetched Successfully", statistics });
             }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(400, new { StatusCode = 400, Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        [Route("{sportCode}/categories")]
+        public async Task<ActionResult<IEnumerable<SportStatistic>>> GetAllCategoriesBySportCode(string sportCode)
+        {
+            try
+            {
+                var statistics = await _sportService.GetAllCategoriesAsync(sportCode);
+                return Ok(new { StatusCode = 200, Message = "Statistics Fetched Successfully", statistics });
+            }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(400, new { StatusCode = 400, Message = ex.Message });
+            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });

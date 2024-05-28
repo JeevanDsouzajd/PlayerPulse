@@ -136,10 +136,23 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             var ruleId = await _auctionRepository.GetRuleIdByRuleType(rule);
 
+            var auction = await _auctionRepository.GetAuctionByIdAsync(auctionRuleRQ.AuctionId);
+
+            if(auction == null)
+            {
+                throw new ArgumentException("Auction not found");
+            }
+
             var existingRule = await _auctionRepository.GetAuctionRuleByAuctionIdAndRuleIdAsync(auctionRuleRQ.AuctionId, ruleId);
+
             if (existingRule != null)
             {
                 throw new ArgumentException("This rule is already assigned to the auction.");
+            }
+
+            if (rule == RuleEnum.TeamBudget && auctionRuleRQ.RuleValue < 50000000)
+            {
+                throw new ArgumentException("Team Budget rule value cannot be less than 50,000,000.");
             }
 
             var auctionRule = new AuctionRule

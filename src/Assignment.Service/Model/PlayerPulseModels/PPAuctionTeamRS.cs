@@ -8,17 +8,18 @@ namespace Assignment.Service.Model.PlayerPulseModels
 {
     public class PPAuctionTeamRS
     {
-        public int Id { get; set; }
-
-        public int AuctionId { get; set; }
 
         public int TeamId { get; set; }
+
+        public int AuctionId { get; set; }
 
         public DateTime RegistrationTime { get; set; }
 
         public decimal BudgetAmount { get; set; }
 
         public decimal BalanceAmount { get; set; }
+
+        public int NumberOfPlayers { get; set; }
 
     }
 }

@@ -33,7 +33,10 @@ namespace Assignment.Api.Controllers
         {
             try
             {
-                var createdTeam = await _teamService.CreateTeamAsync(team);
+                var token = _session.GetString("AccessToken");
+                var decyptedtoken = await _authService.DecryptJwt(token);
+
+                var createdTeam = await _teamService.CreateTeamAsync(team, decyptedtoken);
                 return Ok(new { StatusCode = 200, Message = "Team added successfully", createdTeam });
             }
             catch (ArgumentException ex)
@@ -105,7 +108,7 @@ namespace Assignment.Api.Controllers
         {
             try
             {
-               await _teamService.AssignTeamManagerAsync(teamCode, userId);
+                await _teamService.AssignTeamManagerAsync(teamCode, userId);
 
                 return Ok(new { StatusCode = 200, Message = "Team Manager assigned successfully" });
 
@@ -118,7 +121,6 @@ namespace Assignment.Api.Controllers
             {
                 return StatusCode(500, new { StatusCode = 500, Message = "Internal server error", Error = ex.Message });
             }
-
         }
 
         [CustomAuthorize("team-manage")]
@@ -127,7 +129,10 @@ namespace Assignment.Api.Controllers
         {
             try
             {
-                var auctionTeam = await _teamService.RegisterTeamForAuctionAsync(teamCode, auctionId);
+                var token = _session.GetString("AccessToken");
+                var decyptedtoken = await _authService.DecryptJwt(token);
+
+                var auctionTeam = await _teamService.RegisterTeamForAuctionAsync(teamCode, auctionId, decyptedtoken);
                 return Ok(new { StatusCode = 200, Message = "Team Registered for the auction Successfully", auctionTeam });
             }
             catch (ArgumentException ex)
@@ -156,54 +161,6 @@ namespace Assignment.Api.Controllers
             }
         }
 
-        [CustomAuthorize("team-update")]
-        [HttpGet]
-        [Route("teams/{teamCode}/auction/{auctionId}")]
-        public async Task<ActionResult<PPAuctionTeamRS>> GetTeamAuctionData([FromRoute] string teamCode, int auctionId)
-        {
-            if (string.IsNullOrEmpty(teamCode))
-            {
-                return BadRequest(new { StatusCode = 400, Message = "Team code cannot be empty" });
-            }
-
-            try
-            {
-                var team = await _teamService.GetTeamAuctionData(teamCode, auctionId);
-                if (team == null)
-                {
-                    return Ok(new { StatusCode = 404, Message = "Team Detail not found" });
-                }
-                return Ok(new { StatusCode = 200, Message = "Team Details Fetched Successfully", team });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });
-            }
-        }
-
-        [CustomAuthorize("team-view")]
-        [HttpGet("team/{teamCode}/players")]
-        public async Task<ActionResult<IEnumerable<PPTeamPlayerRS>>> GetTeamRoster(string teamCode)
-        {
-            try
-            {
-                var players = await _teamService.GetTeamRosterAsync(teamCode);
-
-                if(!players.Any())
-                {
-                    return Ok(new { StatusCode = 404, Message = "Player Details not found for this team" });
-                }
-
-                return Ok(new { StatusCode = 200, Message = "Players Fetched Successfully", players});
-            }
-            catch (ArgumentException ex)
-            {
-                return StatusCode(400, new { StatusCode = 400, Message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });
-            }
-        }
+        
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Assignment.Api.Models;
 using Assignment.Api.Models.PlayerPulseModel;
 using Assignment.Api.Models.PlayerPulseModels;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Assignment.Service.Model.PlayerPulseModels;
 using Assignment.Service.Services;
 using Assignment.Service.Services.PlayerPulseServices;
@@ -73,9 +74,6 @@ namespace Assignment.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Note: Allowed value range for BasePrice is from 10,000 to 50,000 only.
-        /// </summary>
         [CustomAuthorize("player-manage")]
         [HttpPost("player")]
         public async Task<ActionResult<PPPlayerRS>> CreatePlayer(PPPlayerRQ playerRequest)
@@ -141,14 +139,14 @@ namespace Assignment.Api.Controllers
 
         [CustomAuthorize("player-manage")]
         [HttpPost("player/assign/sport")]
-        public async Task<ActionResult> AssignSportToPlayer([Required] string playerCode, [Required] string sportCode, [Required] LevelType level)
+        public async Task<ActionResult> AssignSportToPlayer([Required] string playerCode, [Required] string sportCode, [Required] LevelType level, [Required] CategoryEnum category)
         {
             try
             {
                 var token = _session.GetString("AccessToken");
                 var decyptedtoken = await _authService.DecryptJwt(token);
 
-                await _playerService.AssignSportToPlayerAsync(playerCode, sportCode, level, decyptedtoken);
+                await _playerService.AssignSportToPlayerAsync(playerCode, sportCode, level, category, decyptedtoken);
                 return Ok(new { StatusCode = 200, Message = "Sport assigned to player successfully" });
             }
             catch (ArgumentException ex)
@@ -221,38 +219,6 @@ namespace Assignment.Api.Controllers
             catch (ArgumentException ex)
             {
                 return StatusCode(400, new { StatusCode = 400, Message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });
-            }
-        }
-
-        [CustomAuthorize("player-view")]
-        [HttpGet]
-        [Route("players/auction/{auctionId}/sold")]
-        public async Task<ActionResult<IEnumerable<PlayerAuction>>> GetSoldPlayersByAuctionId([FromRoute] int auctionId)
-        {
-            try
-            {
-                var players = await _playerService.GetSoldPlayersByAuctionIdAsync(auctionId);
-                return Ok(new { StatusCode = 200, Message = "Sold Players Fetched Successfully", players });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });
-            }
-        }
-
-        [CustomAuthorize("player-view")]
-        [HttpGet]
-        [Route("players/auction/{auctionId}/unsold")]
-        public async Task<ActionResult<IEnumerable<PlayerAuction>>> GetUnsoldPlayersByAuctionId([FromRoute] int auctionId)
-        {
-            try
-            {
-                var players = await _playerService.GetUnsoldPlayersByAuctionIdAsync(auctionId);
-                return Ok(new { StatusCode = 200, Message = "Unsold Players Fetched Successfully", players });
             }
             catch (Exception ex)
             {

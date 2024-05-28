@@ -95,12 +95,12 @@ namespace Assignment.Api.Controllers
 
                 if (user == null)
                 {
-                    throw new ArgumentException("User not found");
+                    return Ok(new { StatusCode = 404, Message = "User Not Found"});
                 }
 
                 if (user.IsVerified == false)
                 {
-                    throw new ArgumentException("You have to verify first to generate a token");
+                    return StatusCode(400, new { StatusCode = 400, Message = "You have to verify first to generate a token"});
                 }
 
                 var accessToken = await _userService.GenerateJwtToken(userLoginRQ.Email);

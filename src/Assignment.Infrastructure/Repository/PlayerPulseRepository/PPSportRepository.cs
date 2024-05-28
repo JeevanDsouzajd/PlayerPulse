@@ -1,6 +1,7 @@
 ﻿using Assignment.Api.Interfaces.PlayerPulseInterfaces;
 using Assignment.Api.Models;
 using Assignment.Api.Models.PlayerPulseModel;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -35,6 +36,14 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
             var sportId = sport.Id;
 
             return await _dbContext.SportStatistics.Where(p => p.SportId == sportId).ToListAsync();
+        }
+
+        public async Task<List<SportCategory>> GetAllCategoriesAsync(string sportCode)
+        {
+            var sport = await GetSportIdByCodeAsync(sportCode);
+            var sportId = sport.Id;
+
+            return await _dbContext.SportCategories.Where(p => p.SportId == sportId).ToListAsync();
         }
 
     }

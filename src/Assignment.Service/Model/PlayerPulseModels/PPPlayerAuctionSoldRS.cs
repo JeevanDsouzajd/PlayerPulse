@@ -6,14 +6,12 @@ using System.Threading.Tasks;
 
 namespace Assignment.Service.Model.PlayerPulseModels
 {
-    public class PPTeamPlayerRS
+    public class PPPlayerAuctionSoldRS
     {
         public int PlayerId { get; set; }
 
-        public DateTime ContractStartDate { get; set; }
+        public int TeamId { get; set; }
 
-        public DateTime ContractEndDate { get; set; }
-
-        public decimal? PurchasedAmount { get; set; }
+        public decimal? SellingPrice { get; set; }
     }
 }

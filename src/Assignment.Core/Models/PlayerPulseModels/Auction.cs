@@ -36,6 +36,8 @@ public partial class Auction
 
     public virtual ICollection<PlayerAuction> PlayerAuctions { get; set; } = new List<PlayerAuction>();
 
+    public virtual ICollection<TeamPlayer> TeamPlayers { get; set; } = new List<TeamPlayer>();
+
     public virtual Sport Sport { get; set; }
 }
 

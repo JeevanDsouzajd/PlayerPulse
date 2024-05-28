@@ -25,9 +25,9 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<PlayerAuction> GetPlayerAuctionDetailByPlayerCodeAsync(string playerCode)
+        public async Task<PlayerAuction> GetPlayerAuctionDetailByPlayerCodeAsync(string playerCode, int auctionId)
         {
-            return await _dbContext.PlayerAuctions.FirstOrDefaultAsync(p => p.Player.PlayerCode == playerCode);
+            return await _dbContext.PlayerAuctions.FirstOrDefaultAsync(p => p.Player.PlayerCode == playerCode && p.AuctionId == auctionId);
         }
 
         public async Task UpdatePlayerAuctionDetailAsync(PlayerAuction playerAuction)
@@ -117,6 +117,23 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<List<PlayerAuction>> GetAuctionPlayers(int auctionId)
+        {
+            return await _dbContext.PlayerAuctions
+            .Where(b => b.AuctionId == auctionId)
+            .Include(pa => pa.Player)
+            .ThenInclude(p => p.PlayerSports)
+            .ThenInclude(ps => ps.SportCategory)
+            .ToListAsync();
+        }
+
+        public async Task<List<TeamPlayer>> GetSoldPlayers(int auctionId)
+        {
+            return await _dbContext.TeamPlayers
+                .Where(b => b.AuctionId == auctionId)
+                .ToListAsync();
+        }
+
         public async Task<AuctionBid> GetJobIdByPlayerId(string playerCode)
         {
             var jobId = await _dbContext.AuctionBids
@@ -149,6 +166,13 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
             return await _dbContext.PlayerAuctions
               .Where(pa => pa.IsActive == true)
               .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<TeamPlayer>> GetSoldPlayersOfTeam(int auctionId, int teamId)
+        {
+            return await _dbContext.TeamPlayers
+                .Where(b => b.AuctionId == auctionId && b.TeamId == teamId)
+                .ToListAsync();
         }
     }
 }

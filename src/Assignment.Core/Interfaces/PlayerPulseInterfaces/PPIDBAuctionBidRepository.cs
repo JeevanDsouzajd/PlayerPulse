@@ -13,7 +13,7 @@ namespace Assignment.Api.Interfaces.PlayerPulseInterfaces
     {
         Task UpdateAuctionAsync(Auction auction);
 
-        Task<PlayerAuction> GetPlayerAuctionDetailByPlayerCodeAsync(string playerCode);
+        Task<PlayerAuction> GetPlayerAuctionDetailByPlayerCodeAsync(string playerCode, int auctionId);
 
         Task UpdatePlayerAuctionDetailAsync(PlayerAuction playerAuction);
 
@@ -50,5 +50,11 @@ namespace Assignment.Api.Interfaces.PlayerPulseInterfaces
         Task<IEnumerable<AuctionBid>> GetActiveBidsByAuctionIdAsync(int auctionId);
 
         Task<PlayerAuction> GetActivePlayerAuctionAsync();
+
+        Task<List<PlayerAuction>> GetAuctionPlayers(int auctionId);
+
+        Task<List<TeamPlayer>> GetSoldPlayers(int auctionId);
+
+        Task<List<TeamPlayer>> GetSoldPlayersOfTeam(int auctionId, int teamId);
     }
 }

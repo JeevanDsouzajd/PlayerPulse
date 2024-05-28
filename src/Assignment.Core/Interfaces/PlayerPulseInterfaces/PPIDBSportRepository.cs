@@ -1,5 +1,6 @@
 ﻿using Assignment.Api.Models;
 using Assignment.Api.Models.PlayerPulseModel;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ namespace Assignment.Api.Interfaces.PlayerPulseInterfaces
         Task<Sport> GetSportIdByCodeAsync(string sportCode);
         
         Task<List<SportStatistic>> GetAllStatisticsAsync(string sportCode);
-      
+
+        Task<List<SportCategory>> GetAllCategoriesAsync(string sportCode);
     }
 }

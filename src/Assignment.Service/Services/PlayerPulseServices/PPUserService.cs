@@ -181,7 +181,6 @@ namespace Assignment.Service.Services.PlayerPulseServices
                 UpdatedAt = DateTime.UtcNow
             };
             return response;
-
         }
 
         public async Task<PPUserUpdateRS> UpdateUserAsync(int userId, PPUserUpdateRQ user, string token)
@@ -268,18 +267,11 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
         private int GenerateOTP()
         {
-            const int otpLength = 4;
-            const int minDigit = 0;
-            const int maxDigit = 9;
+            const int minOTPValue = 1000;
+            const int maxOTPValue = 9999; 
 
-            StringBuilder otpBuilder = new StringBuilder();
-            for (int i = 0; i < otpLength; i++)
-            {
-                otpBuilder.Append(random.Next(minDigit, maxDigit + 1));
-            }
-            return int.Parse(otpBuilder.ToString());
+            return random.Next(minOTPValue, maxOTPValue + 1);
         }
-
 
         public async Task<string> GenerateJwtToken(string email)
         {
@@ -324,7 +316,7 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             var encryptedJwt = EncryptJwt(token);
             return encryptedJwt;
-        }
+        }        
 
         public string EncryptJwt(JwtSecurityToken token)
         {

@@ -3,6 +3,7 @@ using Assignment.Api.Interfaces.PlayerPulseInterfaces;
 using Assignment.Api.Models;
 using Assignment.Api.Models.PlayerPulseModel;
 using Assignment.Api.Models.PlayerPulseModels;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Assignment.Service.Model.PlayerPulseModels;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
@@ -22,12 +23,14 @@ namespace Assignment.Service.Services.PlayerPulseServices
         private readonly PPIDBSportRepository _sportRepository;
         private readonly PPIDBUserRepository _userRepository;
         private readonly PPIDBAuctionRepository _auctionRepository;
-        public PPPlayerService(PPIDBPlayerRepository playerRepository, PPIDBSportRepository sportRepository, PPIDBUserRepository userRepository, PPIDBAuctionRepository auctionRepository)
+        private readonly PPIDBAuctionBidRepository _auctionBidRepository;
+        public PPPlayerService(PPIDBPlayerRepository playerRepository, PPIDBSportRepository sportRepository, PPIDBUserRepository userRepository, PPIDBAuctionRepository auctionRepository, PPIDBAuctionBidRepository auctionBidRepository)
         {
             _playerRepository = playerRepository;
             _sportRepository = sportRepository;
             _userRepository = userRepository;
             _auctionRepository = auctionRepository;
+            _auctionBidRepository = auctionBidRepository;
         }
 
         public async Task<IEnumerable<PPPlayerRS>> GetAllPlayersAsync()
@@ -99,7 +102,7 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             if (user.Id != tokenUserId ) 
             {
-                throw new Exception("You are not authorized to perform this action");
+                throw new ArgumentException("You are not authorized to perform this action");
             }
 
             var existingPlayer = await _playerRepository.GetPlayerByCodeAsync(playerRequest.PlayerCode);
@@ -216,7 +219,7 @@ namespace Assignment.Service.Services.PlayerPulseServices
         }
 
 
-        public async Task AssignSportToPlayerAsync(string playerCode, string sportCode, LevelType level, string token)
+        public async Task AssignSportToPlayerAsync(string playerCode, string sportCode, LevelType level, CategoryEnum category, string token)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenClaim = tokenHandler.ReadToken(token) as JwtSecurityToken;
@@ -225,13 +228,12 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             var player = await _playerRepository.GetPlayerByCodeAsync(playerCode);
 
-            if(player == null)
+            if (player == null)
             {
-                throw new ArgumentException("Player not found");
+                throw new ArgumentException("You do not have permission to change this player details");
             }
 
-            await _playerRepository.AssignSportToPlayerAsync(playerCode, sportCode, level, tokenUserId);
-
+            await _playerRepository.AssignSportToPlayerAsync(playerCode, sportCode, level, category, tokenUserId);
         }
 
         public async Task<PPPlayerStatisticsRS> AddPlayerStatisticsAsync(string playerCode, PPPlayerStatisticsRQ playerStatisticRQ, string token)
@@ -259,9 +261,22 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             var statistic = await _playerRepository.GetStatisticByStatisticID(playerStatisticRQ.StatisticTypeId);
 
-            if (playerSport.SportId != statistic.SportId)
+            if(statistic == null)
             {
-                throw new ArgumentException("Invalid statistic submission. Statistics can only be added for the player's registered sport.");
+                throw new ArgumentException("Invalid StatisticType Id");
+            }
+
+            var existingStatistic = await _playerRepository.GetPlayerStatisticByPlayerIdAndStatisticTypeAsync(player.Id, playerStatisticRQ.StatisticTypeId);
+
+            if (existingStatistic != null)
+            {
+                throw new ArgumentException("Duplicate statistic entry. A statistic for this type has already been added for this player.");
+            }
+
+
+            if (!playerSport.Any(ps => ps.SportId == statistic.SportId))
+            {
+                throw new ArgumentException("Invalid statistic submission. Statistics can only be added for the player's registered sport and statistic type.");
             }
 
             var playerStatistic = new PlayerStatistic
@@ -301,14 +316,20 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             if (player == null)
             {
-                throw new Exception($"Player with code '{playerCode}' not found.");
+                throw new ArgumentException($"Player with code '{playerCode}' not found.");
             }
 
             var playerSport = await _playerRepository.GetPlayerSportByPlayerIdAsync(player.Id);
 
             var auction = await _auctionRepository.GetAuctionByIdAsync(auctionId);
 
-            if(playerSport.SportId != auction.SportId) 
+            if(auction == null)
+            {
+                throw new ArgumentException("Auction not found");
+            }
+
+
+            if (!playerSport.Any(ps => ps.SportId == auction.SportId))
             {
                 throw new ArgumentException("You cannot assign player to this auction since this auction is for a different sport");
             }
@@ -328,36 +349,32 @@ namespace Assignment.Service.Services.PlayerPulseServices
             }
 
             // Calculate valuation points based on player level and statistics
-            var valuationPoints = await CalculateValuationPoints(player.Id);
+            var valuationPoints = await CalculateValuationPoints(player.Id, auctionId);
 
             var playerAuction = new PlayerAuction
             {
                 PlayerId = player.Id,
                 AuctionId = auctionId,
+                ValuationPoints = valuationPoints,
                 ValuatedPrice = valuationPoints * player.BasePrice,
                 SellingPrice = 0,
-                IsActive = false
+                Status = PlayerAuctionStatus.Upcoming
             };
 
             await _playerRepository.CreatePlayerAuctionAsync(playerAuction);
-
-            var playerValuation = new PlayerValuation
-            {
-                PlayerId = player.Id,
-                ValuationPoints = valuationPoints,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await _playerRepository.CreatePlayerValuationAsync(playerValuation);
-
         }
 
-        private async Task<decimal> CalculateValuationPoints(int playerId)
+        private async Task<decimal> CalculateValuationPoints(int playerId, int auctionId)
         {
             var playerSport = await _playerRepository.GetPlayerSportByPlayerIdAsync(playerId);
 
-            var level = await _playerRepository.GetLevelById(playerSport.LevelId);
+            var auction = await _auctionRepository.GetAuctionByIdAsync(auctionId);
+            var sport = auction.SportId;
+
+
+            var relevantPlayerSport = playerSport.FirstOrDefault(ps => ps.SportId == auction.SportId);
+
+            var level = await _playerRepository.GetLevelById(relevantPlayerSport.LevelId);
             var levelName = level.Name;
 
             var playerStatistics = await _playerRepository.GetPlayerStatisticsByPlayerIdAsync(playerId);
@@ -449,33 +466,40 @@ namespace Assignment.Service.Services.PlayerPulseServices
             }
         }
 
-        public async Task<IEnumerable<PPPlayerAuctionRS>> GetSoldPlayersByAuctionIdAsync(int auctionId)
+        public async Task<IEnumerable<PPPlayerAuctionRS>> GetPlayersByAuctionIdAsync(int auctionId)
         {
-            var players = await _playerRepository.GetPlayersByAuctionIdAsync(auctionId);
-            var soldPlayers =  players.Where(p => p.IsSold).ToList();
+            var auctionPlayers = await _auctionBidRepository.GetAuctionPlayers(auctionId);
 
-            return soldPlayers.Select(soldPlayers => new PPPlayerAuctionRS
+            return auctionPlayers.Select(auctionPlayer => new PPPlayerAuctionRS
             {
-                Id = soldPlayers.Id,
-                PlayerId = soldPlayers.PlayerId,
-                AuctionId = soldPlayers.AuctionId,
-                ValuatedPrice = soldPlayers.ValuatedPrice,
-                SellingPrice = soldPlayers.SellingPrice
+                PlayerId = auctionPlayer.PlayerId,
+                Category = auctionPlayer.Player.PlayerSports.FirstOrDefault()?.SportCategory.Name.ToString(),
+                ValuatedPrice = auctionPlayer.ValuatedPrice,
+                Status = auctionPlayer.Status
             });
         }
 
-        public async Task<IEnumerable<PPPlayerAuctionRS>> GetUnsoldPlayersByAuctionIdAsync(int auctionId)
+        public async Task<IEnumerable<PPPlayerAuctionSoldRS>> GetSoldPlayersByAuctionIdAsync(int auctionId)
+        {
+            var teamPlayers = await _auctionBidRepository.GetSoldPlayers(auctionId);
+
+            return teamPlayers.Select(teamPlayers => new PPPlayerAuctionSoldRS
+            {
+                PlayerId = teamPlayers.PlayerId,
+                TeamId = teamPlayers.TeamId,
+                SellingPrice = teamPlayers.PurchasedAmount
+            });
+        }
+
+        public async Task<IEnumerable<PPPlayerAuctionUnsoldRS>> GetUnsoldPlayersByAuctionIdAsync(int auctionId)
         {
             var players = await _playerRepository.GetPlayersByAuctionIdAsync(auctionId);
-            var unsoldPlayers =  players.Where(p => !p.IsSold).ToList();
+            var unsoldPlayers =  players.Where(p => p.Status == PlayerAuctionStatus.Unsold).ToList();
 
-            return unsoldPlayers.Select(unsoldPlayers => new PPPlayerAuctionRS
+            return unsoldPlayers.Select(unsoldPlayers => new PPPlayerAuctionUnsoldRS
             {
-                Id = unsoldPlayers.Id,
                 PlayerId = unsoldPlayers.PlayerId,
-                AuctionId = unsoldPlayers.AuctionId,
-                ValuatedPrice = unsoldPlayers.ValuatedPrice,
-                SellingPrice = unsoldPlayers.SellingPrice
+                ValuatedPrice = unsoldPlayers.ValuatedPrice
             });
         }
 

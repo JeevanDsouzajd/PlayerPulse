@@ -83,8 +83,7 @@ namespace Assignment.Api.Controllers
                 return StatusCode(500, new { StatusCode = 500, Message = "Internal Server Error", Error = ex.Message });
             }
         }
-
-
+        
         [CustomAuthorize("auction-create")]
         [HttpPost("auction/assign/rule")]
         public async Task<ActionResult<AuctionRule>> AssignRuleToAuction([Required] [FromForm]RuleEnum rule, [FromForm] PPAuctionRuleRQ auctionRuleRQ)

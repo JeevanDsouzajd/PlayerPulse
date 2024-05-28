@@ -2,6 +2,7 @@
 using Assignment.Api.Models;
 using Assignment.Api.Models.PlayerPulseModel;
 using Assignment.Api.Models.PlayerPulseModels;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -56,15 +57,20 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task AssignSportToPlayerAsync(string playerCode, string sportCode, LevelType levelType, int tokenId)
+        public async Task AssignSportToPlayerAsync(string playerCode, string sportCode, LevelType levelType, CategoryEnum categoryType, int tokenId)
         {
             var player = await _dbContext.Players.FirstOrDefaultAsync(p => p.PlayerCode == playerCode);
 
-            var sport = await _dbContext.Sports.FirstOrDefaultAsync(s => s.SportCode == sportCode);          
+            var sport = await _dbContext.Sports.FirstOrDefaultAsync(s => s.SportCode == sportCode);
 
             var level = await _dbContext.Levels.FirstOrDefaultAsync(l => l.Name == levelType);
 
+            var category = await _dbContext.SportCategories.FirstOrDefaultAsync(c => c.Name == categoryType);
 
+            if (category.SportId != sport.Id)
+            {
+                throw new ArgumentException("You cannot assign player to this category since it is of different sport.");
+            }
             if (player.UserId != tokenId)
             {
                 throw new ArgumentException("You do not have the permission to assign sports to this player.");
@@ -81,30 +87,29 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
             {
                 throw new ArgumentException($"Level with name {levelType} not found.");
             }
-
-            var existingSport = await _dbContext.PlayerSports.FirstOrDefaultAsync(ps => ps.PlayerId == player.Id);
-
-            if (existingSport != null)
+            if (category == null)
             {
-                throw new ArgumentException("Player is already assigned to a sport. A player can only be assigned to one sport.");
+                throw new ArgumentException($"Category with name {categoryType} not found.");
             }
 
+            var existingSport = await _dbContext.PlayerSports.FirstOrDefaultAsync(ps => ps.PlayerId == player.Id);
 
             var playerSport = new PlayerSport
             {
                 PlayerId = player.Id,
                 SportId = sport.Id,
                 LevelId = level.Id,
+                SportCategoryId = category.Id
             };
 
             _dbContext.PlayerSports.Add(playerSport);
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<PlayerSport> GetPlayerSportByPlayerIdAsync(int playerId)
+        public async Task<List<PlayerSport>> GetPlayerSportByPlayerIdAsync(int playerId)
         {
             return await _dbContext.PlayerSports
-                .FirstOrDefaultAsync(ps => ps.PlayerId == playerId);
+                .Where(ps => ps.PlayerId == playerId).ToListAsync();
         }
 
         public async Task<List<PlayerStatistic>> GetPlayerStatisticsByPlayerIdAsync(int playerId)
@@ -152,10 +157,11 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
                 .ToListAsync();
         }
 
-        public async Task CreatePlayerValuationAsync(PlayerValuation playerValuation)
+        public async Task<PlayerStatistic> GetPlayerStatisticByPlayerIdAndStatisticTypeAsync(int playerId, int statisticTypeId)
         {
-            await _dbContext.PlayerValuations.AddAsync(playerValuation);
-            await _dbContext.SaveChangesAsync();
+            return await _dbContext.PlayerStatistics
+                .FirstOrDefaultAsync(ps => ps.PlayerId == playerId && ps.StatisticTypeId == statisticTypeId);
         }
+
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Assignment.Api.Models.PlayerPulseModels;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Api.Models.PlayerPulseModel;
@@ -42,13 +43,13 @@ public partial class PlayerPulseContext : DbContext
 
     public virtual DbSet<PlayerSport> PlayerSports { get; set; }
 
-    public virtual DbSet<PlayerStatistic> PlayerStatistics { get; set; }
-
-    public virtual DbSet<PlayerValuation> PlayerValuations { get; set; }
+    public virtual DbSet<PlayerStatistic> PlayerStatistics { get; set; }    
 
     public virtual DbSet<Rule> Rules { get; set; }
 
     public virtual DbSet<Sport> Sports { get; set; }
+
+    public virtual DbSet<SportCategory> SportCategories { get; set; }
 
     public virtual DbSet<SportStatistic> SportStatistics { get; set; }
 
@@ -240,6 +241,9 @@ public partial class PlayerPulseContext : DbContext
             entity.Property(e => e.PlayerId).HasColumnName("PlayerID");
             entity.Property(e => e.SellingPrice).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.ValuatedPrice).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.ValuationPoints).HasColumnType("decimal(10, 2)");
+
+            entity.Property(e => e.Status).HasConversion<string>();
 
             entity.HasOne(d => d.Auction).WithMany(p => p.PlayerAuctions)
                 .HasForeignKey(d => d.AuctionId)
@@ -363,11 +367,16 @@ public partial class PlayerPulseContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__PlayerSpo__Playe__7EF6D905");
 
+            entity.HasOne(d => d.SportCategory).WithMany(p => p.PlayerSports)
+                .HasForeignKey(d => d.SportCategoryId)
+                .HasConstraintName("FK__PlayerSpo__Sport__69C6B1F5");
+
             entity.HasOne(d => d.Sport).WithMany(p => p.PlayerSports)
                 .HasForeignKey(d => d.SportId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__PlayerSpo__Sport__7FEAFD3E");
         });
+          
 
         modelBuilder.Entity<PlayerStatistic>(entity =>
         {
@@ -389,21 +398,6 @@ public partial class PlayerPulseContext : DbContext
                 .HasConstraintName("FK__PlayerSta__Stati__0C50D423");
         });
 
-        modelBuilder.Entity<PlayerValuation>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PK__PlayerVa__3214EC0790E86576");
-
-            entity.ToTable("PlayerValuation");
-
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime");
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime");
-            entity.Property(e => e.ValuationPoints).HasColumnType("decimal(10, 2)");
-
-            entity.HasOne(d => d.Player).WithMany(p => p.PlayerValuations)
-                .HasForeignKey(d => d.PlayerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK__PlayerVal__Playe__32AB8735");
-        });
 
         modelBuilder.Entity<Rule>(entity =>
         {
@@ -435,6 +429,27 @@ public partial class PlayerPulseContext : DbContext
                 .IsRequired()
                 .HasMaxLength(100)
                 .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<SportCategory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__SportCat__3214EC07FD493EC4");
+
+            entity.ToTable("SportCategory");
+
+            entity.HasIndex(e => e.Name, "UQ__SportCat__737584F630FF946A").IsUnique();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasConversion<string>()
+                .IsUnicode(false);
+            entity.Property(e => e.SportId).HasColumnName("SportID");
+
+            entity.HasOne(d => d.Sport).WithMany(p => p.SportCategories)
+                .HasForeignKey(d => d.SportId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__SportCate__Sport__68D28DBC");
         });
 
         modelBuilder.Entity<SportStatistic>(entity =>
@@ -486,9 +501,6 @@ public partial class PlayerPulseContext : DbContext
             entity.Property(e => e.ContractStartDate).HasColumnType("datetime");
             entity.Property(e => e.PlayerId).HasColumnName("PlayerID");
             entity.Property(e => e.PurchasedAmount).HasColumnType("decimal(10, 2)");
-            entity.Property(e => e.Status)
-                .HasMaxLength(100)
-                .IsUnicode(false);
             entity.Property(e => e.TeamId).HasColumnName("TeamID");
 
             entity.HasOne(d => d.Player).WithMany(p => p.TeamPlayers)

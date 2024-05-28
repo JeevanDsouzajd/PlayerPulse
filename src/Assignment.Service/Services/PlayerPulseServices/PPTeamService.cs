@@ -4,8 +4,10 @@ using Assignment.Api.Models.PlayerPulseModel;
 using Assignment.Api.Models.PlayerPulseModels;
 using Assignment.Service.Model.PlayerPulseModels;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Numerics;
 using System.Reflection.Metadata.Ecma335;
@@ -22,17 +24,23 @@ namespace Assignment.Service.Services.PlayerPulseServices
         private readonly PPIDBAuctionRepository _auctionRepository;
         private readonly PPIDBUserRepository _userRepository;
         private readonly PPIDBPlayerRepository _playerRepository;
+        private readonly PPIDBAuctionBidRepository _auctionBidRepository;
 
-        public PPTeamService(PPIDBTeamRepository teamRepository, PPIDBAuctionRepository auctionRepository, PPIDBUserRepository userRepository, PPIDBPlayerRepository playerRepository)
+        public PPTeamService(PPIDBTeamRepository teamRepository, PPIDBAuctionRepository auctionRepository, PPIDBUserRepository userRepository, PPIDBPlayerRepository playerRepository, PPIDBAuctionBidRepository auctionBidRepository)
         {
             _teamRepository = teamRepository;
             _auctionRepository = auctionRepository;
             _userRepository = userRepository;
             _playerRepository = playerRepository;
+            _auctionBidRepository = auctionBidRepository;
         }
 
-        public async Task<PPTeamRS> CreateTeamAsync(PPTeamRQ team)
+        public async Task<PPTeamRS> CreateTeamAsync(PPTeamRQ team, string token)
         {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenClaim = tokenHandler.ReadToken(token) as JwtSecurityToken;
+            string UserId = tokenClaim.Claims.FirstOrDefault(claim => claim.Type == "UserId")?.Value;
+            int tokenUserId = Convert.ToInt32(UserId);
 
             if (team.Logo == null)
             {
@@ -69,6 +77,48 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
             var newTeam = await _teamRepository.CreateTeamAsync(entity);
 
+            var user = await _userRepository.GetUserByIdAsync(tokenUserId);
+
+            var existingTeamsManaged = await _teamRepository.GetTeamManagersByUserIdAsync(tokenUserId);
+
+            if (existingTeamsManaged.Count() >= 1)
+            {
+                throw new ArgumentException("User cannot manage more than one team");
+            }
+
+            if (user.RoleId != 3)
+            {
+                throw new ArgumentException("This user does not have permission of a Team Manager");
+            }
+
+            if (user == null)
+            {
+                throw new ArgumentException("User not found");
+            }
+
+            if (!user.IsVerified)
+            {
+                throw new ArgumentException("User verification required to assign as team manager");
+
+            }
+
+            var teamData = await _teamRepository.GetTeamByCodeAsync(team.TeamCode);
+
+            if (teamData == null)
+            {
+                throw new ArgumentException("Team not found");
+
+            }
+
+            var existingManager = await _teamRepository.IsUserTeamManagerAsync(tokenUserId, teamData.Id);
+
+            if (existingManager)
+            {
+                throw new ArgumentException("User already manages a team");
+            }
+
+            await _teamRepository.AssignTeamManager(teamData.Id, tokenUserId);
+
             return new PPTeamRS
             {
                 Id = newTeam.Id,
@@ -80,21 +130,21 @@ namespace Assignment.Service.Services.PlayerPulseServices
         public async Task<IEnumerable<PPTeamRS>> GetAllTeamsAsync()
         {
 
-            var teams =  await _teamRepository.GetAllTeamsAsync();
+            var teams = await _teamRepository.GetAllTeamsAsync();
 
             return teams.Select(teams => new PPTeamRS
             {
                 Id = teams.Id,
                 TeamCode = teams.TeamCode,
                 Name = teams.Name
-                
+
             });
-            
+
         }
 
         public async Task<PPTeamRS> GetTeamByCodeAsync(string teamCode)
         {
-            var team =  await _teamRepository.GetTeamByCodeAsync(teamCode);
+            var team = await _teamRepository.GetTeamByCodeAsync(teamCode);
 
             if (team == null)
             {
@@ -121,7 +171,6 @@ namespace Assignment.Service.Services.PlayerPulseServices
             team.IsDeleted = true;
 
             await _teamRepository.DeleteTeamAsync(team);
-
         }
 
         public async Task AssignTeamManagerAsync(string teamCode, int userId)
@@ -156,7 +205,7 @@ namespace Assignment.Service.Services.PlayerPulseServices
             if (team == null)
             {
                 throw new ArgumentException("Team not found");
-                
+
             }
 
             var existingManager = await _teamRepository.IsUserTeamManagerAsync(userId, team.Id);
@@ -169,8 +218,15 @@ namespace Assignment.Service.Services.PlayerPulseServices
             await _teamRepository.AssignTeamManager(team.Id, userId);
         }
 
-        public async Task<PPAuctionTeamRS> RegisterTeamForAuctionAsync(string teamCode, int auctionId)
+        public async Task<PPAuctionTeamRS> RegisterTeamForAuctionAsync(string teamCode, int auctionId, string token)
         {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenClaim = tokenHandler.ReadToken(token) as JwtSecurityToken;
+            string UserId = tokenClaim.Claims.FirstOrDefault(claim => claim.Type == "UserId")?.Value;
+            int tokenUserId = Convert.ToInt32(UserId);
+
+            var user = await _userRepository.GetUserByIdAsync(tokenUserId);
+
             var teamId = await _teamRepository.GetTeamIdByCodeAsync(teamCode);
 
             var auctionRule = await _auctionRepository.GetAuctionRuleByIdAsync(auctionId);
@@ -180,6 +236,10 @@ namespace Assignment.Service.Services.PlayerPulseServices
             var initialBudget = relevantRule?.RuleValue ?? 50000000;
 
             var team = await _teamRepository.GetTeamByCodeAsync(teamCode);
+
+            var teamUser = await _teamRepository.GetTeamUser(teamId);
+
+            var teamUserId = teamUser?.UserId;
 
             if (team == null)
             {
@@ -204,27 +264,34 @@ namespace Assignment.Service.Services.PlayerPulseServices
                 throw new ArgumentException("Registration for this auction has closed");
             }
 
-            var teamAuctionRegistration = new AuctionTeam
+            if (teamUserId == tokenUserId || user.RoleId == 2)
             {
-                TeamId = teamId,
-                AuctionId = auctionId,
-                RegistrationTime = DateTime.UtcNow,
-                BudgetAmount = initialBudget,
-                BalanceAmount = initialBudget,
-                UpdatedAt = DateTime.UtcNow,
-            };
 
-            var auctionTeams = await _teamRepository.RegisterTeamForAuctionAsync(teamAuctionRegistration);
+                var teamAuctionRegistration = new AuctionTeam
+                {
+                    TeamId = teamId,
+                    AuctionId = auctionId,
+                    RegistrationTime = DateTime.UtcNow,
+                    BudgetAmount = initialBudget,
+                    BalanceAmount = initialBudget,
+                    UpdatedAt = DateTime.UtcNow,
+                };
 
-            return new PPAuctionTeamRS
+                var auctionTeams = await _teamRepository.RegisterTeamForAuctionAsync(teamAuctionRegistration);
+
+                return new PPAuctionTeamRS
+                {
+                    TeamId = auctionTeams.TeamId,
+                    AuctionId = auctionTeams.AuctionId,
+                    RegistrationTime = auctionTeams.RegistrationTime,
+                    BudgetAmount = auctionTeams.BudgetAmount,
+                    BalanceAmount = auctionTeams.BalanceAmount
+                };
+            }
+            else
             {
-                Id = auctionTeams.Id,
-                TeamId = auctionTeams.TeamId,
-                AuctionId = auctionTeams.AuctionId,
-                RegistrationTime = auctionTeams.RegistrationTime,
-                BudgetAmount = auctionTeams.BudgetAmount,
-                BalanceAmount = auctionTeams.BalanceAmount
-            };
+                throw new ArgumentException("You do not have permission to access this resource");
+            }
         }
 
         public async Task<IEnumerable<object>> GetAllTeamsAuctionDataByAuctionId(int auctionId)
@@ -247,36 +314,36 @@ namespace Assignment.Service.Services.PlayerPulseServices
         {
             var team = await _teamRepository.GetTeamAuctionData(teamCode, auctionId);
 
+            var teamPlayer = await _auctionBidRepository.GetSoldPlayersOfTeam(auctionId, team.TeamId);
+
             return new PPAuctionTeamRS
             {
-                Id = team.Id,
-                AuctionId =  team.AuctionId,
+                AuctionId = team.AuctionId,
                 TeamId = team.TeamId,
                 RegistrationTime = team.RegistrationTime,
                 BudgetAmount = team.BudgetAmount,
-                BalanceAmount = team.BalanceAmount
+                BalanceAmount = team.BalanceAmount,
+                NumberOfPlayers = teamPlayer.Count()
             };
-
         }
 
-        public async Task<IEnumerable<PPTeamPlayerRS>> GetTeamRosterAsync(string teamCode)
+        public async Task<IEnumerable<PPTeamPlayerRS>> GetTeamRosterAsync(string teamCode, int auctionId)
         {
-            var teamPlayers = await _teamRepository.GetTeamPlayersByTeamCodeAsync(teamCode);
+            var teamPlayers = await _teamRepository.GetTeamPlayersByTeamCodeAndAuctionIdAsync(teamCode, auctionId);
 
             if (!teamPlayers.Any())
             {
-                throw new ArgumentException("Player Details not found.");
+                throw new ArgumentException("No Players found.");
             }
 
             return teamPlayers.Select(tp => new PPTeamPlayerRS
             {
-                Id = tp.Id,
                 PlayerId = tp.PlayerId,
-                Status = tp.Status,
                 ContractStartDate = tp.ContractStartDate,
                 ContractEndDate = tp.ContractEndDate,
                 PurchasedAmount = tp.PurchasedAmount,
             });
         }
+
     }
 }

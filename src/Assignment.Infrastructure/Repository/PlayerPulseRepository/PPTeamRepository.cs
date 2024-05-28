@@ -105,13 +105,25 @@ namespace Assignment.Infrastructure.Repository.PlayerPulseRepository
               .ToListAsync();
         }
 
-        public async Task<IEnumerable<TeamPlayer>> GetTeamPlayersByTeamCodeAsync(string teamCode)
+        public async Task<TeamUser> GetTeamManagerByTeamId(int teamId)
+        {
+            return await _context.TeamUsers
+              .Where(tm => tm.TeamId == teamId)
+              .FirstOrDefaultAsync();
+        }
+
+        public async Task<IEnumerable<TeamPlayer>> GetTeamPlayersByTeamCodeAndAuctionIdAsync(string teamCode, int auctionId)
         {
             var teamId = await GetTeamIdByCodeAsync(teamCode);
 
             return await _context.TeamPlayers
-                .Where(tp => tp.TeamId == teamId)
+                .Where(tp => tp.TeamId == teamId && tp.AuctionId == auctionId)
                 .ToListAsync();
+        }
+
+        public async Task<TeamUser> GetTeamUser(int teamId)
+        {
+            return await _context.TeamUsers.FirstOrDefaultAsync(a => a.TeamId == teamId);
         }
     }
 }

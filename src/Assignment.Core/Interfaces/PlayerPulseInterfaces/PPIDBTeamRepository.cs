@@ -35,6 +35,10 @@ namespace Assignment.Api.Interfaces.PlayerPulseInterfaces
 
         Task<List<TeamUser>> GetTeamManagersByUserIdAsync(int userId);
 
-        Task<IEnumerable<TeamPlayer>> GetTeamPlayersByTeamCodeAsync(string teamCode);
+        Task<TeamUser> GetTeamManagerByTeamId(int teamId);
+
+        Task<IEnumerable<TeamPlayer>> GetTeamPlayersByTeamCodeAndAuctionIdAsync(string teamCode, int auctionId);
+
+        Task<TeamUser> GetTeamUser(int teamId);
     }
 }

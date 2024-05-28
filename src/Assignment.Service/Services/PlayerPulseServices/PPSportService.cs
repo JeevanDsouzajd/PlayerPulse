@@ -37,6 +37,13 @@ namespace Assignment.Service.Services.PlayerPulseServices
 
         public async Task<IEnumerable<object>> GetAllStatisticsAsync(string sportCode)
         {
+            var sportId = await _sportRepository.GetSportIdByCodeAsync(sportCode);
+
+            if(sportId == null)
+            {
+                throw new ArgumentException("Invalid SportCode.");
+            }
+
             var statistics = await _sportRepository.GetAllStatisticsAsync(sportCode);
 
             var statisticsDto = statistics.Select(statistics => new
@@ -46,6 +53,26 @@ namespace Assignment.Service.Services.PlayerPulseServices
             });
 
             return statisticsDto;
+        }
+
+        public async Task<IEnumerable<object>> GetAllCategoriesAsync(string sportCode)
+        {
+            var sportId = await _sportRepository.GetSportIdByCodeAsync(sportCode);
+
+            if (sportId == null)
+            {
+                throw new ArgumentException("Invalid SportCode.");
+            }
+
+            var categories = await _sportRepository.GetAllCategoriesAsync(sportCode);
+
+            var categoriesDto = categories.Select(categories => new
+            {
+                categories.Id,
+                categories.Name
+            });
+
+            return categoriesDto;
         }
     }
 }

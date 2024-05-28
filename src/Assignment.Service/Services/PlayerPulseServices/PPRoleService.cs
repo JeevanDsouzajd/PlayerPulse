@@ -24,9 +24,7 @@ namespace Assignment.Service.Services.PlayerPulseServices
             var rolesDto = roles.Select(user => new
             {
                 user.Id,
-                user.RoleName,
-                user.CreatedAt,
-                user.UpdatedAt
+                user.RoleName
             });
 
             return rolesDto;

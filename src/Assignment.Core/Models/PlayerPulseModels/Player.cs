@@ -40,8 +40,6 @@ public partial class Player
 
     public virtual ICollection<PlayerStatistic> PlayerStatistics { get; set; } = new List<PlayerStatistic>();
 
-    public virtual ICollection<PlayerValuation> PlayerValuations { get; set; } = new List<PlayerValuation>();
-
     public virtual ICollection<TeamPlayer> TeamPlayers { get; set; } = new List<TeamPlayer>();
 
     public virtual PlayerPulseUser User { get; set; }

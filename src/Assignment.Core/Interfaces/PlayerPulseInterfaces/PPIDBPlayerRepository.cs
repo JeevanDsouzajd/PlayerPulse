@@ -1,6 +1,7 @@
 ﻿using Assignment.Api.Models;
 using Assignment.Api.Models.PlayerPulseModel;
 using Assignment.Api.Models.PlayerPulseModels;
+using Assignment.Infrastructure.Models.PlayerPulseModel;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -22,9 +23,9 @@ namespace Assignment.Api.Interfaces.PlayerPulseInterfaces
 
         Task<Player> CreatePlayerAsync(Player player);
 
-        Task AssignSportToPlayerAsync(string playerCode, string sportCode, LevelType levelType, int tokenId);
+        Task AssignSportToPlayerAsync(string playerCode, string sportCode, LevelType levelType, CategoryEnum categoryType, int tokenId);
 
-        Task<PlayerSport> GetPlayerSportByPlayerIdAsync(int playerId);
+        Task<List<PlayerSport>> GetPlayerSportByPlayerIdAsync(int playerId);
 
         Task<List<PlayerStatistic>> GetPlayerStatisticsByPlayerIdAsync(int playerId);
 
@@ -42,8 +43,8 @@ namespace Assignment.Api.Interfaces.PlayerPulseInterfaces
 
         Task<List<PlayerAuction>> GetPlayersByAuctionIdAndPlayerIdAsync(int playerId, int auctionId);
 
-        Task CreatePlayerValuationAsync(PlayerValuation playerValuation);
-        
+        Task<PlayerStatistic> GetPlayerStatisticByPlayerIdAndStatisticTypeAsync(int playerId, int statisticTypeId);
+
     }
 
 }
