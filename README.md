@@ -1,2 +1,2 @@
 # PlayerPulse
-Auction Bidding system for players 
+Auction Bidding system for players in sports leagues
